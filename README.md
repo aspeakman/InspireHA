@@ -64,16 +64,18 @@ of your Inspire thermostat will change (as long as it is not in Boost or Off (fr
 
 Similarly changes on your Inspire thermostat (scheduled or manual) will be mirrored on the HA generic thermostat.
 If the Inspire is in Manual/On mode, then the Home Assistant app will effectively control the thermostat. However 
-if it is in Program mode the generic thermostat will also change according to the Inspire timetabled programme.
+if it is in Program mode the generic thermostat will also change according to the Inspire timetabled program.
 
-If your generic thermostat has an 'away_temp' configured, then you can program HA to effectively lower your 
-heating temperature when you leave home by setting the generic thermostat to Away mode.
+If your generic thermostat has any preset mode temperatures configured (eg Away, Eco, Sleep), then setting the 
+generic thermostat to that mode will impose this target. When the preset mode is removed (preset None) 
+the original set point will be restored (Inspire Manual/On mode) or the restored set point will be from the appropriate program 
+segment (Inspire Program mode).
 
 ## Installation
 First set up a [Generic Thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) on Home Assistant
-(see below).
+(see below) using 
 
-Note down the entity ids of the generic thermostat and its underlying 'heater' and 'target_sensor' entities for 
+Note down the ids of the generic thermostat and its underlying 'heater' and 'target_sensor' entities for 
 substitution in the `config.yaml` below.
 
 Next install [Pyscript](https://hacs-pyscript.readthedocs.io/en/latest/).
@@ -87,14 +89,14 @@ climate:
   - platform: generic_thermostat
     unique_id: hall_thermostat
     name: Hall Thermostat
-    heater: switch.inspire_switch
-    target_sensor: sensor.inspire_temperature
+    heater: switch.inspire_switch # use an arbitrary name in the 'switch' domain
+    target_sensor: sensor.inspire_temperature # use an arbitrary name in the 'sensor' domain
     min_temp: 5
     max_temp: 25
     ac_mode: false
-	initial_hvac_mode: "heat"
-    target_temp: 12 # the thermostat is set to this value when HA is restarted
-    away_temp: 10 # the thermostat is set to this value when in Away mode
+    initial_hvac_mode: "heat"
+    target_temp: 12 # this set point is used when HA is restarted
+    away_temp: 10 # this set point is used when in Away mode
 ```
 Configuration is via the pyscript `config.yaml` - an example as follows:
 ```
@@ -102,19 +104,19 @@ allow_all_imports: true
 hass_is_global: false
 apps:
   inspire_ha_thermostat:
-	# the following 3 settings are required
+    # the following 3 settings are required
     generic_thermostat: 'hall_thermostat' # unique_id of controlling generic thermostat climate platform on home assistant
     heater: 'inspire_switch' # entity id of 'heater' state object in switch domain (use switch.entity_id in configuration of generic thermostat)
     target_sensor: 'inspire_temperature' # entity id of 'target_sensor' state object in sensor domain (use sensor.entity_id in configuration of generic thermostat)
     # the following 3 settings are all optional
-    setpoint_sensor: 'inspire_setpoint' # entity id of a created state object in sensor domain to reflect set point of inspire remote device
+    setpoint_sensor: 'inspire_setpoint' # entity id of a state object in sensor domain to reflect set point of inspire remote device (it will be created for you)
     manual_only: false # default true = only transfer settings from generic thermostat if remote thermostat is in Manual/On mode (not following a program)
     poll_cron_mins: '3,8,13,18,23,28,33,38,43,48,53,58' # cron minutes past the hour for polling the remote thermostat - default '*/5' 
     inspire_ha:
       api_key: !secret inspire_ha_api_key
       user_name: !secret inspire_ha_user_name
       password: !secret inspire_ha_password
-	  #device_name: # if set this must match the Unit Name as specified in Setup on the inspire web site, otherwise it uses the first device available
+      #device_name: # if set this must match the Unit Name as specified in Setup on the inspire web site, otherwise it uses the first device available
       #cache_secs: 60 # default secs to store data before refreshing information from inspire API
       #api_url: 'https://www.inspirehomeautomation.co.uk/client/api1_4/api.php' # default
 ```

@@ -1,7 +1,8 @@
 import inspire_ha_req_mod as inspire_ha
 import inspire_ha_common as common
 
-entity_unavailable = ( None, 'unavailable', 'unknown', 'none' )
+ENTITY_UNAVAILABLE = ( None, 'unavailable', 'unknown', 'none' )
+PRESET_MODES = ( 'away', 'comfort', 'eco', 'home', 'sleep', 'activity' )
 
 iha_config = pyscript.app_config['inspire_ha']
 config = {
@@ -50,8 +51,9 @@ else:
             therm_attrs = None
     if therm_attrs is not None:
         friendly_name = therm_attrs['friendly_name']
-        stored_target_temp = None # last manual set_point before entering away mode
-        stored_function = None # last heating function before entering away mode
+        previous_mode = 'none' # previous mode = preset mode or 'none'
+        stored_target_temp = None # last manual set_point before entering preset mode
+        stored_function = None # last heating function before entering preset mode
 
         temperature_attributes = { 
             'friendly_name': friendly_name + ' Temperature',
@@ -83,7 +85,7 @@ def entity_set(entity_name, value, attrs=None, domain='sensor'):
     entity_name = entity_name if entity_name.startswith(domain + '.') else domain + '.' + entity_name
     try:
         result = state.get(entity_name)
-        if result in entity_unavailable:
+        if result in ENTITY_UNAVAILABLE:
             return None
         elif result == value:
             return False
@@ -180,6 +182,7 @@ def restore_target_temp(**kwargs):
     if device is None or therm_attrs is None:
         return
     log.debug('(Re)storing target temp. for %s' % friendly_name)
+    global previous_mode
     global stored_target_temp
     global stored_function
     
@@ -199,35 +202,34 @@ def restore_target_temp(**kwargs):
         return
         
     attrs = state.getattr('climate.' + generic_thermostat)
-    preset_mode = attrs['preset_mode'] if attrs.get('preset_mode') else 'none' 
-    if preset_mode.lower() == 'away':
+    preset_mode = attrs['preset_mode'].lower() if attrs.get('preset_mode') else 'none' 
+    if preset_mode in PRESET_MODES and previous_mode == 'none':
         if function == 'On':
-            stored_target_temp = common.set_point(connection) # last manual target before entering away mode
+            stored_target_temp = common.set_point(connection) # last manual target before entering preset mode
         else:
             stored_target_temp = None
-            status = common.set_device_function(connection, 'On')
+            common.set_device_function(connection, 'On')
         stored_function = function
+        previous_mode = preset_mode
         return
     elif preset_mode != 'none':
+        previous_mode = preset_mode
         return
         
-    # returning from away mode
+    # returning from any preset mode to 'none' mode
     if function == 'On':
         if stored_function == 'On': # no change to function
-            if not stored_target_temp: 
-                return
             target_temp = stored_target_temp # previously set manual target_temp
             msg = "Restored manual temp."
         elif stored_function is not None:
-            status = common.set_device_function(connection, stored_function)
-            if status != 'OK':
-                return
+            common.set_device_function(connection, stored_function)
             profile = common.profile(connection)
             target_temp = profile.get('segment_temperature') # time appropriate profile temp. target
             msg = "Restored profile temp."
         target_temp_to_remote(target_temp, msg)
     stored_target_temp = None
     stored_function = None
+    previous_mode = 'none'
        
 
 
