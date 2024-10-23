@@ -1,0 +1,3 @@
+#defines files to include in the source distribution built by the sdist command
+include inspire_ha/*.py
+include *requirements.txt
