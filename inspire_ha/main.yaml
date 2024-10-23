@@ -1,0 +1,3 @@
+#cache_secs: 60 # default secs to store data before refreshing information from inspire API
+#api_url: 'https://www.inspirehomeautomation.co.uk/client/api1_4/api.php' # default
+#device_name: # if set this must match the Unit Name as specified in Setup on the inspire web site, otherwise it uses the first device available
