@@ -3,6 +3,7 @@ import inspire_ha_common as common
 
 ENTITY_UNAVAILABLE = ( None, 'unavailable', 'unknown', 'none' )
 PRESET_MODES = ( 'away', 'comfort', 'eco', 'home', 'sleep', 'activity' )
+HVAC_MODES = ( 'heat', 'off' )
 
 iha_config = pyscript.app_config['inspire_ha']
 config = {
@@ -49,7 +50,9 @@ else:
             log.error("%d attempts to get attributes from climate.%s" % (delays, generic_thermostat))
             #raise common.InspireAPIException("%d attempts to get attributes from climate.%s" % (delays, generic_thermostat))
             therm_attrs = None
-    if therm_attrs is not None:
+    if therm_attrs is None:
+        log.error("Cannot connect to generic thermostat climate.%s" % generic_thermostat)
+    else:
         friendly_name = therm_attrs['friendly_name']
         previous_mode = 'none' # previous mode = preset mode or 'none'
         stored_target_temp = None # last manual set_point before entering preset mode
@@ -68,8 +71,6 @@ else:
         set_point_attributes.update(SENSOR_ATTS)
         
         log.info("Controlling %s via inspire_ha_thermostat" % friendly_name)
-    else:
-        log.error("Cannot connect to generic thermostat climate.%s" % generic_thermostat)
 
 """ Terminology
 'remote' aka external is the physical thermostat controlled via the Inspire HA API
@@ -114,7 +115,8 @@ def update_from_remote(): # transfer 3 settings from remote API to local sensors
     return temperature, switch, set_point
     
 def target_temp_to_remote(target_temp, prefix_msg = None): # sync local target with remote setpoint
-
+    if not target_temp:
+        return
     set_point = common.set_point(connection) # external set_point string
     if not set_point:
         return
@@ -158,7 +160,7 @@ def target_temp_changed(**kwargs):
     name = attrs.get('friendly_name', '*')
     value = kwargs.get('value', '')
     old_value = kwargs.get('old_value' '')
-    if value != 'heat' or old_value != 'heat': # signature when generic thermostat is reloaded or stopped
+    if value not in HVAC_MODES or old_value not in HVAC_MODES: # signature when generic thermostat is reloaded or stopped
         log.debug('target_temp_changed() of %s cut short at start up' % name)
         return
     
@@ -177,7 +179,7 @@ def target_temp_changed(**kwargs):
         
     target_temp_to_remote(target_temp)
 
-@state_trigger('climate.' + generic_thermostat + '.preset_mode') # store/restore target_temp if preset mode changes
+@state_trigger('climate.' + generic_thermostat + '.preset_mode', state_hold = 1) # store/restore target_temp if preset mode changes
 def restore_target_temp(**kwargs):
     if device is None or therm_attrs is None:
         return
@@ -190,7 +192,7 @@ def restore_target_temp(**kwargs):
     name = attrs.get('friendly_name', '*')
     value = kwargs.get('value', '')
     old_value = kwargs.get('old_value' '')
-    if value != 'heat' or old_value != 'heat': # signature when generic thermostat is reloaded or stopped
+    if value not in HVAC_MODES or old_value not in HVAC_MODES: # signature when generic thermostat is reloaded or stopped
         log.debug('restore_target_temp() of %s cut short at start up' % name)
         return
     
@@ -218,18 +220,21 @@ def restore_target_temp(**kwargs):
         
     # returning from any preset mode to 'none' mode
     if function == 'On':
+        target_temp = None
         if stored_function == 'On': # no change to function
             target_temp = stored_target_temp # previously set manual target_temp
             msg = "Restored manual temp."
         elif stored_function is not None:
             common.set_device_function(connection, stored_function)
             profile = common.profile(connection)
-            target_temp = profile.get('segment_temperature') # time appropriate profile temp. target
+            if profile:
+                target_temp = profile.get('segment_temperature') # time appropriate profile temp. target
             msg = "Restored profile temp."
-        target_temp_to_remote(target_temp, msg)
+        target_temp_to_remote(target_temp, msg) # does nothing if target_temp is None
     stored_target_temp = None
     stored_function = None
     previous_mode = 'none'
-       
+
+
 
 

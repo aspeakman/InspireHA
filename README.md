@@ -12,7 +12,7 @@ climate integration (for details see below).
 ## Pre-requisites
 
 You will need to create a `secrets.yaml` - replace xxxx in the following example - for `api_key`
- [see](https://www.inspirehomeautomation.co.uk/client/api.php).:
+ see [www.inspirehomeautomation.co.uk/client/api.php](https://www.inspirehomeautomation.co.uk/client/api.php):
 ```
 user_name: "xxxx"
 password: "xxxx"
@@ -63,19 +63,20 @@ Home Assistant (HA). If you change the target temperature on the HA generic ther
 of your Inspire thermostat will change (as long as it is not in Boost or Off (frost protection) mode).
 
 Similarly changes on your Inspire thermostat (scheduled or manual) will be mirrored on the HA generic thermostat.
-If the Inspire is in Manual/On mode, then the Home Assistant app will effectively control the thermostat. However 
+If the Inspire is in Manual/On mode, then the generic thermostat will effectively control the Inspire thermostat. However 
 if it is in Program mode the generic thermostat will also change according to the Inspire timetabled program.
 
 If your generic thermostat has any preset mode temperatures configured (eg Away, Eco, Sleep), then setting the 
-generic thermostat to that mode will impose this target. When the preset mode is removed (preset None) 
+generic thermostat to that mode will impose this target on the Inspire thermostat. When the preset mode is removed (preset None) 
 the original set point will be restored (Inspire Manual/On mode) or the restored set point will be from the appropriate program 
-segment (Inspire Program mode).
+segment (Inspire Program mode). You can use this in an HA automation to override the Inspire thermostat program eg when you leave home
+(see example below).
 
 ## Installation
 First set up a [Generic Thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) on Home Assistant
 (see below) using 
 
-Note down the ids of the generic thermostat and its underlying 'heater' and 'target_sensor' entities for 
+Note down the ids of the generic thermostat and its underlying _heater_ and _target_sensor_ entities for 
 substitution in the `config.yaml` below.
 
 Next install [Pyscript](https://hacs-pyscript.readthedocs.io/en/latest/).
@@ -130,4 +131,38 @@ inspire_ha_api_key: "xxxx"
 ## Actions
 
 Look in the logs for entries tagged _inspire_ha_. 
+
+Here is an example of an automation to set Away mode when the house is unoccupied 
+(note depends on an _away_temp_ being set in the generic thermostat configuration):
+```
+automation:
+  alias: Heating Events Hall Thermostat
+  description: Sets away mode on/off on hall thermostat when house unoccupied/occupied
+  mode: single
+  triggers:
+    - entity_id:
+        - input_select.house_occupied
+      trigger: state
+  actions:
+    - if:
+        - condition: state
+          entity_id: input_select.house_occupied
+          state: Occupied
+      then:
+        - data:
+            preset_mode: none
+          target:
+            entity_id: climate.hall_thermostat
+          action: climate.set_preset_mode
+    - if:
+        - condition: state
+          entity_id: input_select.house_occupied
+          state: Unoccupied
+      then:
+        - data:
+            preset_mode: away
+          target:
+            entity_id: climate.hall_thermostat
+          action: climate.set_preset_mode
+```
 
