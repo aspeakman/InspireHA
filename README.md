@@ -74,7 +74,7 @@ segment (Inspire Program mode). You can use this in an HA automation to override
 
 ## Installation
 First set up a [Generic Thermostat](https://www.home-assistant.io/integrations/generic_thermostat/) on Home Assistant
-(see below) using 
+(see below) 
 
 Note down the ids of the generic thermostat and its underlying _heater_ and _target_sensor_ entities for 
 substitution in the `config.yaml` below.
@@ -96,8 +96,11 @@ climate:
     max_temp: 25
     ac_mode: false
     initial_hvac_mode: "heat"
-    target_temp: 12 # this set point is used when HA is restarted
-    away_temp: 10 # this set point is used when in Away mode
+    cold_tolerance: 0.5
+    hot_tolerance: 0.5
+    precision: 0.5
+    target_temp: 12 # note this set point is imposed when HA is restarted
+    away_temp: 10 # optional set point used when in Away mode
 ```
 Configuration is via the pyscript `config.yaml` - an example as follows:
 ```
